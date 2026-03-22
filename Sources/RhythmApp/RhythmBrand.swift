@@ -2,31 +2,33 @@ import SwiftUI
 
 struct RhythmMenuBarLabel: View {
     var body: some View {
-        RhythmMenuLogo(size: 16)
+        RhythmMenuLogo(size: 17)
             .frame(width: 18, height: 18)
             .accessibilityLabel("Rhythm")
     }
 }
 
 struct RhythmMenuLogo: View {
-    var size: CGFloat = 16
+    var size: CGFloat = 17
 
     var body: some View {
         ZStack {
             Circle()
-                .stroke(lineWidth: max(1.4, size * 0.1))
+                .fill(Color(red: 0.19, green: 0.78, blue: 0.70))
+            Circle()
+                .stroke(Color.black.opacity(0.22), lineWidth: max(0.7, size * 0.05))
             RhythmPulseShape()
                 .stroke(
+                    Color.white.opacity(0.97),
                     style: StrokeStyle(
-                        lineWidth: max(1.5, size * 0.12),
+                        lineWidth: max(1.8, size * 0.14),
                         lineCap: .round,
                         lineJoin: .round
                     )
                 )
-                .padding(size * 0.17)
+                .padding(size * 0.16)
         }
         .frame(width: size, height: size)
-        .foregroundStyle(.primary)
     }
 }
 
