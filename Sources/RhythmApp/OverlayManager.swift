@@ -13,8 +13,8 @@ final class OverlayManager: ObservableObject {
     private var overlayWindow: NSWindow?
     private var keyMonitor: Any?
     private var countdownTimer: Timer?
+    private var focusEnforcerTimer: Timer?
     private var restEndAt: Date?
-    private let escapeEventTap = EscapeEventTap()
 
     func present(restSeconds: Int) {
         dismiss()
@@ -40,7 +40,11 @@ final class OverlayManager: ObservableObject {
         window.backgroundColor = .clear
         window.hasShadow = false
         window.ignoresMouseEvents = false
-        window.contentView = NSHostingView(rootView: contentView)
+        let hostingView = EscapeAwareHostingView(rootView: contentView)
+        hostingView.onEscape = { [weak self] in
+            self?.skipByEscape()
+        }
+        window.contentView = hostingView
         window.onEscape = { [weak self] in
             self?.skipByEscape()
         }
@@ -53,25 +57,18 @@ final class OverlayManager: ObservableObject {
         window.makeKeyAndOrderFront(nil)
         window.orderFrontRegardless()
         window.makeMain()
-        window.makeFirstResponder(window.contentView)
+        window.makeFirstResponder(hostingView)
 
-        escapeEventTap.onEscape = { [weak self] in
-            self?.skipByEscape()
-        }
-        // Global event tap can consume ESC even when focus drifts to another app (for example Terminal).
-        // macOS will prompt for accessibility permission when needed.
-        escapeEventTap.start(promptIfNeeded: true)
-
-        if !escapeEventTap.isEnabled {
-            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-                guard let self else { return event }
-                if event.keyCode == 53 {
-                    self.skipByEscape()
-                    return nil
-                }
-                return event
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self else { return event }
+            if event.keyCode == 53 {
+                self.skipByEscape()
+                return nil
             }
+            return event
         }
+
+        startFocusEnforcer()
 
         countdownTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
@@ -84,14 +81,14 @@ final class OverlayManager: ObservableObject {
     func dismiss() {
         countdownTimer?.invalidate()
         countdownTimer = nil
+        focusEnforcerTimer?.invalidate()
+        focusEnforcerTimer = nil
         restEndAt = nil
 
         if let keyMonitor {
             NSEvent.removeMonitor(keyMonitor)
         }
         keyMonitor = nil
-        escapeEventTap.stop()
-        escapeEventTap.onEscape = nil
 
         overlayWindow?.orderOut(nil)
         overlayWindow = nil
@@ -114,6 +111,29 @@ final class OverlayManager: ObservableObject {
             dismiss()
             onCompleted?()
         }
+    }
+
+    private func startFocusEnforcer() {
+        focusEnforcerTimer?.invalidate()
+        focusEnforcerTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard
+                    let self,
+                    self.isShowing,
+                    let window = self.overlayWindow
+                else { return }
+
+                if !NSApp.isActive || !window.isKeyWindow {
+                    NSRunningApplication.current.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
+                    NSApp.activate(ignoringOtherApps: true)
+                    window.makeKeyAndOrderFront(nil)
+                    window.orderFrontRegardless()
+                    window.makeMain()
+                    window.makeFirstResponder(window.contentView)
+                }
+            }
+        }
+        RunLoop.main.add(focusEnforcerTimer!, forMode: .common)
     }
 }
 
@@ -158,6 +178,20 @@ private final class OverlayWindow: NSWindow {
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
+
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 53 {
+            onEscape?()
+            return
+        }
+        super.keyDown(with: event)
+    }
+}
+
+private final class EscapeAwareHostingView<Content: View>: NSHostingView<Content> {
+    var onEscape: (() -> Void)?
+
+    override var acceptsFirstResponder: Bool { true }
 
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 53 {
