@@ -15,18 +15,19 @@ final class OverlayManager: ObservableObject {
     private var countdownTimer: Timer?
     private var focusEnforcerTimer: Timer?
     private var restEndAt: Date?
+    private var shownAt: Date?
+    private let debugOverlay = ProcessInfo.processInfo.environment["RHYTHM_SMOKE_OVERLAY"] == "1"
+    private var originalActivationPolicy: NSApplication.ActivationPolicy?
 
     func present(restSeconds: Int) {
         dismiss()
 
+        let screenFrame = (activeScreen() ?? NSScreen.main ?? NSScreen.screens.first)?.frame
+            ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+
         remainingSeconds = max(1, restSeconds)
         restEndAt = Date().addingTimeInterval(TimeInterval(restSeconds))
-        guard let screen = activeScreen() ?? NSScreen.main ?? NSScreen.screens.first else {
-            restEndAt = nil
-            remainingSeconds = 0
-            isShowing = false
-            return
-        }
+        shownAt = Date()
         isShowing = true
 
         let contentView = OverlayView(
@@ -35,19 +36,17 @@ final class OverlayManager: ObservableObject {
         )
 
         let window = OverlayWindow(
-            contentRect: screen.frame,
+            contentRect: screenFrame,
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
         )
         window.level = .screenSaver
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .moveToActiveSpace]
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         window.isOpaque = false
         window.backgroundColor = .clear
         window.hasShadow = false
         window.ignoresMouseEvents = false
-        window.isReleasedWhenClosed = false
-        window.hidesOnDeactivate = false
 
         let hostingView = EscapeAwareHostingView(rootView: contentView)
         hostingView.onEscape = { [weak self] in
@@ -59,7 +58,18 @@ final class OverlayManager: ObservableObject {
         }
 
         overlayWindow = window
+        originalActivationPolicy = NSApp.activationPolicy()
+        if originalActivationPolicy != .regular {
+            NSApp.setActivationPolicy(.regular)
+        }
         activateAndFocus(firstResponder: hostingView)
+        log("present frame=\(NSStringFromRect(screenFrame)) key=\(window.isKeyWindow)")
+        if debugOverlay {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak window] in
+                guard let window else { return }
+                print("[RhythmOverlay] post-check visible=\(window.isVisible) key=\(window.isKeyWindow) main=\(window.isMainWindow)")
+            }
+        }
 
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self else { return event }
@@ -86,6 +96,7 @@ final class OverlayManager: ObservableObject {
         focusEnforcerTimer?.invalidate()
         focusEnforcerTimer = nil
         restEndAt = nil
+        shownAt = nil
 
         if let keyMonitor {
             NSEvent.removeMonitor(keyMonitor)
@@ -95,12 +106,23 @@ final class OverlayManager: ObservableObject {
         overlayWindow?.orderOut(nil)
         overlayWindow = nil
 
+        if let originalActivationPolicy, originalActivationPolicy != NSApp.activationPolicy() {
+            NSApp.setActivationPolicy(originalActivationPolicy)
+        }
+        originalActivationPolicy = nil
+
         isShowing = false
         remainingSeconds = 0
+        log("dismiss")
     }
 
     func skipByEscape() {
         guard isShowing else { return }
+        if let shownAt, Date().timeIntervalSince(shownAt) < 0.2 {
+            log("ignore esc (debounce)")
+            return
+        }
+        log("skip by esc")
         dismiss()
         onSkipped?()
     }
@@ -127,6 +149,7 @@ final class OverlayManager: ObservableObject {
                 else { return }
 
                 if !NSApp.isActive || !window.isKeyWindow {
+                    self.log("focus lost -> re-activate")
                     self.activateAndFocus(firstResponder: window.contentView)
                 }
             }
@@ -138,13 +161,13 @@ final class OverlayManager: ObservableObject {
         guard let overlayWindow else { return }
         NSRunningApplication.current.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
         NSApp.activate(ignoringOtherApps: true)
-        overlayWindow.level = .screenSaver
         overlayWindow.makeKeyAndOrderFront(nil)
         overlayWindow.orderFrontRegardless()
         overlayWindow.makeMain()
         if let firstResponder {
             overlayWindow.makeFirstResponder(firstResponder)
         }
+        log("activate key=\(overlayWindow.isKeyWindow) main=\(overlayWindow.isMainWindow)")
     }
 
     private func activeScreen() -> NSScreen? {
@@ -152,6 +175,11 @@ final class OverlayManager: ObservableObject {
         return NSScreen.screens.first { screen in
             NSMouseInRect(mouseLocation, screen.frame, false)
         }
+    }
+
+    private func log(_ message: String) {
+        guard debugOverlay else { return }
+        print("[RhythmOverlay] \(message)")
     }
 }
 
