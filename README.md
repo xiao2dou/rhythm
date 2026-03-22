@@ -8,6 +8,8 @@ Rhythm 是一个 macOS 节奏提醒工具，帮助用户建立稳定的「专注
 
 <img src="assets/menu-panel.png" alt="Rhythm Menu Panel" width="480" />
 
+<img src="assets/rest-overlay.png" alt="Rhythm Rest Overlay" width="480" />
+
 ## V1 功能
 
 - 自定义节奏：可设置专注间隔（10-120 分钟，5 分钟步进）和休息时长（30 秒-10 分钟，常用档位）
@@ -95,3 +97,4 @@ RHYTHM_SMOKE_OVERLAY=1 RHYTHM_OVERLAY_DEBUG=1 swift run Rhythm
 
 - Logo 源文件：`assets/rhythm-logo.svg`
 - 面板截图：`assets/menu-panel.png`
+- 休息提醒截图：`assets/rest-overlay.png`
