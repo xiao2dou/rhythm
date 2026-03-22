@@ -2,6 +2,8 @@
 
 Rhythm 是一个 macOS 节奏提醒工具，帮助用户建立稳定的「专注-休息」电脑使用节奏。
 
+![Rhythm Logo](assets/rhythm-logo.svg)
+
 ## V1 功能
 
 - 自定义节奏：可设置专注时长和休息时长
@@ -81,3 +83,7 @@ RHYTHM_SMOKE_OVERLAY=1 RHYTHM_OVERLAY_DEBUG=1 swift run Rhythm
 
 - License: MIT
 - 欢迎通过 Issue / PR 贡献
+
+## 品牌资产
+
+- Logo 源文件：`assets/rhythm-logo.svg`
