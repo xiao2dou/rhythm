@@ -7,12 +7,24 @@ let package = Package(
         .macOS(.v13)
     ],
     products: [
-        .executable(name: "Rhythm", targets: ["Rhythm"])
+        .library(name: "RhythmCore", targets: ["RhythmCore"]),
+        .executable(name: "Rhythm", targets: ["Rhythm"]),
+        .executable(name: "RhythmTDD", targets: ["RhythmTDD"])
     ],
     targets: [
+        .target(
+            name: "RhythmCore",
+            path: "Sources/RhythmCore"
+        ),
         .executableTarget(
             name: "Rhythm",
-            path: "Sources/Rhythm"
+            dependencies: ["RhythmCore"],
+            path: "Sources/RhythmApp"
+        ),
+        .executableTarget(
+            name: "RhythmTDD",
+            dependencies: ["RhythmCore"],
+            path: "Sources/RhythmTDD"
         )
     ]
 )

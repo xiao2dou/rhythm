@@ -1,4 +1,5 @@
 import AppKit
+import RhythmCore
 import SwiftUI
 
 struct MenuBarView: View {

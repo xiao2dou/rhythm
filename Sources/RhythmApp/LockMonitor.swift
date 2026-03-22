@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import RhythmCore
 
 @MainActor
 final class LockMonitor {
@@ -24,3 +25,5 @@ final class LockMonitor {
         onScreenLocked?()
     }
 }
+
+extension LockMonitor: ScreenLockMonitoring {}

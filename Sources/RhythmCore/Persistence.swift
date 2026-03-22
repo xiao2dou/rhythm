@@ -1,16 +1,16 @@
 import Foundation
 
-struct RestSession: Codable, Identifiable {
-    let id: UUID
-    let scheduledRestSeconds: Int
-    let actualRestSeconds: Int
-    let startedAt: Date
-    let endedAt: Date
-    let skipped: Bool
-    let skipReason: String?
-    let createdAt: Date
+public struct RestSession: Codable, Identifiable {
+    public let id: UUID
+    public let scheduledRestSeconds: Int
+    public let actualRestSeconds: Int
+    public let startedAt: Date
+    public let endedAt: Date
+    public let skipped: Bool
+    public let skipReason: String?
+    public let createdAt: Date
 
-    init(
+    public init(
         id: UUID = UUID(),
         scheduledRestSeconds: Int,
         actualRestSeconds: Int,
@@ -32,14 +32,14 @@ struct RestSession: Codable, Identifiable {
 }
 
 @MainActor
-final class SessionStore: ObservableObject {
-    @Published private(set) var sessions: [RestSession] = []
+public final class SessionStore: ObservableObject {
+    @Published public private(set) var sessions: [RestSession] = []
 
     private let fileURL: URL
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
 
-    init() {
+    public init() {
         let fm = FileManager.default
         let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         let directory = appSupport.appendingPathComponent("Rhythm", isDirectory: true)
@@ -53,7 +53,7 @@ final class SessionStore: ObservableObject {
         load()
     }
 
-    func add(_ session: RestSession) {
+    public func add(_ session: RestSession) {
         sessions.insert(session, at: 0)
         save()
     }
@@ -82,35 +82,58 @@ final class SessionStore: ObservableObject {
     }
 }
 
-@MainActor
-final class SettingsStore: ObservableObject {
-    static let focusMinutesKey = "focusMinutes"
-    static let restMinutesKey = "restMinutes"
+extension SessionStore: RestSessionStoring {}
 
-    @Published var focusMinutes: Int {
+@MainActor
+public protocol RhythmSettings: AnyObject {
+    var focusSeconds: Int { get }
+    var restSeconds: Int { get }
+    var onDidChange: (() -> Void)? { get set }
+}
+
+@MainActor
+public final class SettingsStore: ObservableObject {
+    public static let focusMinutesKey = "focusMinutes"
+    public static let restMinutesKey = "restMinutes"
+
+    @Published public var focusMinutes: Int {
         didSet {
-            focusMinutes = max(1, focusMinutes)
+            let normalized = max(1, focusMinutes)
+            if focusMinutes != normalized {
+                focusMinutes = normalized
+                return
+            }
+            if oldValue == focusMinutes {
+                return
+            }
             userDefaults.set(focusMinutes, forKey: Self.focusMinutesKey)
             onDidChange?()
         }
     }
 
-    @Published var restMinutes: Int {
+    @Published public var restMinutes: Int {
         didSet {
-            restMinutes = max(1, restMinutes)
+            let normalized = max(1, restMinutes)
+            if restMinutes != normalized {
+                restMinutes = normalized
+                return
+            }
+            if oldValue == restMinutes {
+                return
+            }
             userDefaults.set(restMinutes, forKey: Self.restMinutesKey)
             onDidChange?()
         }
     }
 
-    var onDidChange: (() -> Void)?
+    public var onDidChange: (() -> Void)?
 
-    var focusSeconds: Int { focusMinutes * 60 }
-    var restSeconds: Int { restMinutes * 60 }
+    public var focusSeconds: Int { focusMinutes * 60 }
+    public var restSeconds: Int { restMinutes * 60 }
 
     private let userDefaults: UserDefaults
 
-    init(userDefaults: UserDefaults = .standard) {
+    public init(userDefaults: UserDefaults = .standard) {
         self.userDefaults = userDefaults
         let storedFocus = userDefaults.integer(forKey: Self.focusMinutesKey)
         let storedRest = userDefaults.integer(forKey: Self.restMinutesKey)
@@ -118,3 +141,5 @@ final class SettingsStore: ObservableObject {
         self.restMinutes = max(1, storedRest == 0 ? 5 : storedRest)
     }
 }
+
+extension SettingsStore: RhythmSettings {}

@@ -1,4 +1,5 @@
 import AppKit
+import RhythmCore
 import SwiftUI
 
 @MainActor
@@ -22,11 +23,11 @@ final class OverlayManager: ObservableObject {
         restEndAt = Date().addingTimeInterval(TimeInterval(restSeconds))
 
         let contentView = OverlayView(
-            remainingSeconds: { [weak self] in self?.remainingSeconds ?? 0 },
+            model: self,
             skipAction: { [weak self] in self?.skipByEscape() }
         )
 
-        let window = NSWindow(
+        let window = OverlayWindow(
             contentRect: screenFrame,
             styleMask: [.borderless],
             backing: .buffered,
@@ -98,7 +99,7 @@ final class OverlayManager: ObservableObject {
 }
 
 private struct OverlayView: View {
-    let remainingSeconds: () -> Int
+    @ObservedObject var model: OverlayManager
     let skipAction: () -> Void
 
     var body: some View {
@@ -109,7 +110,7 @@ private struct OverlayView: View {
                 Text("休息时间")
                     .font(.system(size: 56, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
-                Text(Self.format(remainingSeconds()))
+                Text(Self.format(model.remainingSeconds))
                     .font(.system(size: 64, weight: .heavy, design: .rounded))
                     .foregroundStyle(.white)
                     .monospacedDigit()
@@ -132,3 +133,10 @@ private struct OverlayView: View {
         return String(format: "%02d:%02d", minute, second)
     }
 }
+
+private final class OverlayWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+}
+
+extension OverlayManager: RestOverlaying {}

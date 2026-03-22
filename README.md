@@ -25,6 +25,18 @@ swift run Rhythm
 
 > 注意：需要在 macOS 环境运行。首次运行可能需要在系统设置中允许应用窗口置顶或辅助功能能力（取决于系统策略）。
 
+## TDD 回归检查
+
+```bash
+swift run RhythmTDD
+```
+
+该命令会执行一组可重复的回归检查，覆盖：
+
+- 设置变更回调与最小值归一化
+- 跳过休息后的 session 记录
+- 锁屏导致的计时周期重置
+
 ## 项目结构
 
 ```txt
@@ -32,14 +44,17 @@ swift run Rhythm
 ├── docs/
 │   └── V1-design.md
 ├── Sources/
-│   └── Rhythm/
-│       ├── AppModel.swift
-│       ├── LockMonitor.swift
-│       ├── MenuBarView.swift
-│       ├── OverlayManager.swift
-│       ├── Persistence.swift
-│       ├── RhythmApp.swift
-│       └── TimerEngine.swift
+│   ├── RhythmApp/
+│   │   ├── AppModel.swift
+│   │   ├── LockMonitor.swift
+│   │   ├── MenuBarView.swift
+│   │   ├── OverlayManager.swift
+│   │   └── RhythmApp.swift
+│   ├── RhythmCore/
+│   │   ├── Persistence.swift
+│   │   └── TimerEngine.swift
+│   └── RhythmTDD/
+│       └── main.swift
 └── Package.swift
 ```
 

@@ -1,4 +1,5 @@
 import Foundation
+import RhythmCore
 
 @MainActor
 final class AppModel: ObservableObject {
